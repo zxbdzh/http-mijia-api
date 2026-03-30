@@ -1,0 +1,11 @@
+# Core dependencies
+mijiaapi @ git+https://github.com/Do1e/mijia-api.git@main
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.20
+requests>=2.31.0
+qrcode>=7.4.2
+Pillow>=10.0.0
+
+# Frontend
+jinja2>=3.1.0

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mijia-api:
+    build: .
+    container_name: mijia-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - MIJIA_DATA_DIR=/app/data
+      - MIJIA_HOST=0.0.0.0
+      - MIJIA_PORT=8080
+      - MIJIA_LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mijia-network
+
+networks:
+  mijia-network:
+    driver: bridge
