@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from threading import Lock
 
-import requests
+import httpx
 from qrcode import QRCode
 from mijiaAPI import mijiaAPI, mijiaDevice, DeviceNotFoundError, DeviceGetError, DeviceSetError, DeviceActionError
 
@@ -104,6 +104,17 @@ class MijiaService:
         img.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode()
     
+    def _parse_cookies_from_response(self, response: httpx.Response) -> dict:
+        """从响应头中手动解析 Set-Cookie，避免 client.cookies 累积问题。"""
+        cookies = {}
+        for set_cookie in response.headers.get_list("set-cookie"):
+            for cookie_str in set_cookie.split(";"):
+                cookie_str = cookie_str.strip()
+                if "=" in cookie_str:
+                    name, value = cookie_str.split("=", 1)
+                    cookies[name.strip()] = value.strip()
+        return cookies
+    
     async def start_login(self) -> dict:
         """Start QR code login - non-blocking."""
         if self.is_authenticated:
@@ -130,49 +141,51 @@ class MijiaService:
                           f"uLocale={self.api.locale};"
             }
             
-            service_ret = requests.get(self.api.service_login_url, headers=headers, timeout=10)
-            service_text = service_ret.text.replace("&&&START&&&", "")
-            service_data = json.loads(service_text)
-            location = service_data.get("location", "")
-            
-            # Check token refresh
-            if service_data.get('code') == 0:
-                ret = self.api.session.get(location)
-                if ret.status_code == 200 and ret.text == "ok":
-                    cookies = self.api.session.cookies.get_dict()
-                    self.api.auth_data.update(cookies)
-                    self.api.auth_data["ssecurity"] = service_data["ssecurity"]
-                    self.api._save_auth_data()
-                    self.api._init_session()
-                    self.is_authenticated = True
-                    self.user_id = self.api.auth_data.get("userId")
-                    self._login_state = LoginState(
-                        status="success",
-                        message="Login successful",
-                        user_id=self.user_id
-                    )
-                    return {
-                        "status": "success",
-                        "message": "Login successful",
-                        "user_id": self.user_id
-                    }
-            
-            # Build login URL for QR code
-            location_data = dict(parse.parse_qsl(parse.urlparse(location).query))
-            location_data.update({
-                "theme": "",
-                "bizDeviceType": "",
-                "_hasLogo": "false",
-                "_qrsize": "240",
-                "_dc": str(int(time.time() * 1000)),
-            })
-            
-            url = self.api.login_url + "?" + parse.urlencode(location_data)
-            headers["Accept-Encoding"] = "gzip"
-            
-            login_ret = requests.get(url, headers=headers, timeout=10)
-            login_text = login_ret.text.replace("&&&START&&&", "")
-            login_data = json.loads(login_text)
+            async with httpx.AsyncClient() as client:
+                service_ret = await client.get(self.api.service_login_url, headers=headers, timeout=10.0)
+                service_text = service_ret.text.replace("&&&START&&&", "")
+                service_data = json.loads(service_text)
+                location = service_data.get("location", "")
+                
+                # Check token refresh
+                if service_data.get('code') == 0:
+                    ret = await client.get(location, timeout=10.0)
+                    if ret.status_code == 200 and ret.text == "ok":
+                        # 手动解析 cookies，避免 client.cookies 累积
+                        cookies = self._parse_cookies_from_response(ret)
+                        self.api.auth_data.update(cookies)
+                        self.api.auth_data["ssecurity"] = service_data["ssecurity"]
+                        self.api._save_auth_data()
+                        self.api._init_session()
+                        self.is_authenticated = True
+                        self.user_id = self.api.auth_data.get("userId")
+                        self._login_state = LoginState(
+                            status="success",
+                            message="Login successful",
+                            user_id=self.user_id
+                        )
+                        return {
+                            "status": "success",
+                            "message": "Login successful",
+                            "user_id": self.user_id
+                        }
+                
+                # Build login URL for QR code
+                location_data = dict(parse.parse_qsl(parse.urlparse(location).query))
+                location_data.update({
+                    "theme": "",
+                    "bizDeviceType": "",
+                    "_hasLogo": "false",
+                    "_qrsize": "240",
+                    "_dc": str(int(time.time() * 1000)),
+                })
+                
+                url = self.api.login_url + "?" + parse.urlencode(location_data)
+                headers["Accept-Encoding"] = "gzip"
+                
+                login_ret = await client.get(url, headers=headers, timeout=10.0)
+                login_text = login_ret.text.replace("&&&START&&&", "")
+                login_data = json.loads(login_text)
             
             login_url = login_data.get("loginUrl")
             qr_link = login_data.get("qr")
@@ -235,56 +248,80 @@ class MijiaService:
                 "Connection": "keep-alive",
             }
             
-            session_req = requests.Session()
             max_attempts = 60
             poll_interval = 2
             
-            for attempt in range(max_attempts):
-                if self._login_state.status in ["success", "error"]:
-                    return
-                
-                try:
-                    lp_ret = session_req.get(self._login_state.lp_url, headers=headers, timeout=5)
-                    lp_text = lp_ret.text.replace("&&&START&&&", "")
-                    
-                    if not lp_text.strip():
-                        await asyncio.sleep(poll_interval)
-                        continue
-                    
-                    lp_data = json.loads(lp_text)
-                    
-                    if lp_data.get("userId"):
-                        auth_keys = ["psecurity", "nonce", "ssecurity", "passToken", "userId", "cUserId"]
-                        for key in auth_keys:
-                            self.api.auth_data[key] = lp_data[key]
-                        
-                        callback_url = lp_data.get("location", "")
-                        if callback_url:
-                            session_req.get(callback_url, headers=headers, timeout=5)
-                        
-                        cookies = session_req.cookies.get_dict()
-                        self.api.auth_data.update(cookies)
-                        self.api.auth_data.update({
-                            "expireTime": int((datetime.now() + timedelta(days=30)).timestamp() * 1000),
-                        })
-                        self.api._save_auth_data()
-                        self.api._init_session()
-                        
-                        self.is_authenticated = True
-                        self.user_id = self.api.auth_data.get("userId")
-                        self._login_state = LoginState(
-                            status="success",
-                            message="Login successful",
-                            user_id=self.user_id
-                        )
-                        logger.info(f"Login successful: {self.user_id}")
+            async with httpx.AsyncClient() as client:
+                for attempt in range(max_attempts):
+                    if self._login_state.status in ["success", "error"]:
                         return
                     
-                    await asyncio.sleep(poll_interval)
-                    
-                except requests.exceptions.Timeout:
-                    await asyncio.sleep(poll_interval)
-                    continue
+                    try:
+                        lp_ret = await client.get(self._login_state.lp_url, headers=headers, timeout=5.0)
+                        lp_text = lp_ret.text.replace("&&&START&&&", "")
+                        
+                        if not lp_text.strip():
+                            await asyncio.sleep(poll_interval)
+                            continue
+                        
+                        lp_data = json.loads(lp_text)
+                        
+                        # 调试：打印 lp_data 的所有 key
+                        logger.info(f"lp_data keys: {list(lp_data.keys())}")
+                        
+                        if lp_data.get("userId"):
+                            # 更新 auth_data 中的关键字段
+                            auth_keys = ["psecurity", "nonce", "ssecurity", "passToken", "userId", "cUserId"]
+                            for key in auth_keys:
+                                self.api.auth_data[key] = lp_data[key]
+                            
+                            callback_url = lp_data.get("location", "")
+                            cb_cookies = {}
+                            if callback_url:
+                                cb_ret = await client.get(callback_url, headers=headers, timeout=5.0)
+                                # 从 callback 响应中获取 cookies（包含 serviceToken）
+                                cb_cookies = self._parse_cookies_from_response(cb_ret)
+                            
+                            # 手动解析 lp 响应的 cookies
+                            cookies = self._parse_cookies_from_response(lp_ret)
+                            cookies.update(cb_cookies)
+                            self.api.auth_data.update(cookies)
+                            
+                            # 更新过期时间
+                            self.api.auth_data.update({
+                                "expireTime": int((datetime.now() + timedelta(days=30)).timestamp() * 1000),
+                            })
+                            
+                            # 打印所有 cookies 以便调试
+                            logger.info(f"Parsed cookies: {list(cookies.keys())}")
+                            logger.info(f"serviceToken in cookies: {'serviceToken' in cookies}")
+                            
+                            # 确保 serviceToken 存在
+                            if "serviceToken" not in self.api.auth_data:
+                                logger.warning("serviceToken not found in cookies")
+                                # serviceToken 为可选的，继续尝试
+                            
+                            logger.debug(f"Auth data keys: {list(self.api.auth_data.keys())}")
+                            logger.debug(f"serviceToken present: {'serviceToken' in self.api.auth_data}")
+                            
+                            self.api._save_auth_data()
+                            self.api._init_session()
+                            
+                            self.is_authenticated = True
+                            self.user_id = self.api.auth_data.get("userId")
+                            self._login_state = LoginState(
+                                status="success",
+                                message="Login successful",
+                                user_id=self.user_id
+                            )
+                            logger.info(f"Login successful: {self.user_id}")
+                            return
+                        
+                        await asyncio.sleep(poll_interval)
+                        
+                    except httpx.TimeoutException:
+                        await asyncio.sleep(poll_interval)
+                        continue
             
             self._login_state = LoginState(
                 status="error",
