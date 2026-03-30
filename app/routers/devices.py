@@ -1,9 +1,10 @@
 """Devices router - Simplified single instance mode."""
 
 import logging
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 
 from app.services.mijia import mijia_service
+from app.dependencies import verify_api_secret
 
 logger = logging.getLogger("devices")
 
@@ -21,7 +22,7 @@ def handle_error(e: Exception):
 # ============ Homes ============
 
 @router.get("/homes")
-async def get_homes():
+async def get_homes(_: bool = Depends(verify_api_secret)):
     """获取所有家庭."""
     try:
         return mijia_service.get_homes()
@@ -32,7 +33,7 @@ async def get_homes():
 # ============ Devices ============
 
 @router.get("/")
-async def get_devices(home_id: str = Query(None, description="家庭ID")):
+async def get_devices(home_id: str = Query(None, description="家庭ID"), _: bool = Depends(verify_api_secret)):
     """获取所有设备或指定家庭的设备."""
     try:
         return mijia_service.get_devices(home_id)
@@ -41,7 +42,7 @@ async def get_devices(home_id: str = Query(None, description="家庭ID")):
 
 
 @router.get("/shared")
-async def get_shared_devices():
+async def get_shared_devices(_: bool = Depends(verify_api_secret)):
     """获取共享设备."""
     try:
         return mijia_service.get_shared_devices()
@@ -50,7 +51,7 @@ async def get_shared_devices():
 
 
 @router.get("/{did}")
-async def get_device(did: str):
+async def get_device(did: str, _: bool = Depends(verify_api_secret)):
     """获取指定设备."""
     try:
         return mijia_service.get_device(did)
@@ -59,7 +60,7 @@ async def get_device(did: str):
 
 
 @router.get("/{did}/info")
-async def get_device_info_by_did(did: str):
+async def get_device_info_by_did(did: str, _: bool = Depends(verify_api_secret)):
     """获取设备型号信息（通过did）."""
     try:
         return mijia_service.get_device_info_by_did(did)
@@ -68,7 +69,7 @@ async def get_device_info_by_did(did: str):
 
 
 @router.get("/info/{model}")
-async def get_device_info_by_model(model: str):
+async def get_device_info_by_model(model: str, _: bool = Depends(verify_api_secret)):
     """获取设备信息."""
     try:
         return mijia_service.get_device_info(model)
@@ -79,7 +80,7 @@ async def get_device_info_by_model(model: str):
 # ============ Properties ============
 
 @router.get("/{did}/properties")
-async def get_device_properties(did: str):
+async def get_device_properties(did: str, _: bool = Depends(verify_api_secret)):
     """获取设备所有属性."""
     try:
         return mijia_service.get_device_properties(did)
@@ -88,7 +89,7 @@ async def get_device_properties(did: str):
 
 
 @router.get("/{did}/properties/{prop_name}")
-async def get_device_property(did: str, prop_name: str):
+async def get_device_property(did: str, prop_name: str, _: bool = Depends(verify_api_secret)):
     """获取设备单个属性."""
     try:
         return mijia_service.get_device_property(did, prop_name)
@@ -97,7 +98,7 @@ async def get_device_property(did: str, prop_name: str):
 
 
 @router.put("/{did}/properties/{prop_name}")
-async def set_device_property(did: str, prop_name: str, value: float | bool | str):
+async def set_device_property(did: str, prop_name: str, value: float | bool | str, _: bool = Depends(verify_api_secret)):
     """设置设备属性."""
     try:
         return mijia_service.set_device_property(did, prop_name, value)
@@ -108,7 +109,7 @@ async def set_device_property(did: str, prop_name: str, value: float | bool | st
 # ============ Actions ============
 
 @router.post("/{did}/actions/{action_name}")
-async def execute_action(did: str, action_name: str, **params):
+async def execute_action(did: str, action_name: str, _: bool = Depends(verify_api_secret), **params):
     """执行设备动作."""
     try:
         return mijia_service.execute_action(did, action_name, **params)
@@ -119,7 +120,7 @@ async def execute_action(did: str, action_name: str, **params):
 # ============ Consumables ============
 
 @router.get("/{did}/consumables")
-async def get_consumables(did: str, home_id: str = Query(None)):
+async def get_consumables(did: str, home_id: str = Query(None), _: bool = Depends(verify_api_secret)):
     """获取设备耗材信息."""
     try:
         return mijia_service.get_consumables(home_id)

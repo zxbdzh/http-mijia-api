@@ -1,9 +1,10 @@
 """Scenes router - Simplified single instance mode."""
 
 import logging
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 
 from app.services.mijia import mijia_service
+from app.dependencies import verify_api_secret
 
 logger = logging.getLogger("scenes")
 
@@ -21,7 +22,7 @@ def handle_error(e: Exception):
 # ============ Scenes ============
 
 @router.get("/scenes")
-async def get_scenes(home_id: str = Query(None, description="家庭ID")):
+async def get_scenes(home_id: str = Query(None, description="家庭ID"), _: bool = Depends(verify_api_secret)):
     """获取所有场景或指定家庭的场景."""
     try:
         return mijia_service.get_scenes(home_id)
@@ -30,7 +31,7 @@ async def get_scenes(home_id: str = Query(None, description="家庭ID")):
 
 
 @router.post("/scenes/{scene_id}")
-async def run_scene(scene_id: str, home_id: str = Query(None, description="家庭ID")):
+async def run_scene(scene_id: str, home_id: str = Query(None, description="家庭ID"), _: bool = Depends(verify_api_secret)):
     """执行场景."""
     try:
         # 如果没有提供 home_id，尝试从场景列表中获取

@@ -951,6 +951,21 @@
       let ws = null;
       let currentDevice = null;
       let currentTab = "devices";
+      
+      // Get secret from URL and store in sessionStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const secretFromUrl = urlParams.get('secret');
+      if (secretFromUrl) {
+        sessionStorage.setItem('api_secret', secretFromUrl);
+      }
+      const apiSecret = sessionStorage.getItem('api_secret') || '';
+      
+      // Helper function to add secret to URL
+      function addSecret(url) {
+        if (!apiSecret) return url;
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}secret=${encodeURIComponent(apiSecret)}`;
+      }
 
       // ============ Icons (SVG) ============
       const icons = {
@@ -1019,7 +1034,7 @@
       // ============ Auth ============
       async function checkAuth() {
         try {
-          const res = await fetch("/api/v1/auth/status");
+          const res = await fetch(addSecret("/api/v1/auth/status"));
           const data = await res.json();
 
           const title = document.getElementById("authTitle");
@@ -1056,7 +1071,7 @@
           document.getElementById("qrSection").classList.remove("hidden");
           document.getElementById("loginSection").classList.add("hidden");
 
-          const res = await fetch("/api/v1/auth/login", { method: "POST" });
+          const res = await fetch(addSecret("/api/v1/auth/login"), { method: "POST" });
           const data = await res.json();
 
           if (data.status === "waiting" && data.qr_image) {
@@ -1104,7 +1119,7 @@
       }
 
       async function cancelLogin() {
-        await fetch("/api/v1/auth/login/cancel", { method: "POST" });
+        await fetch(addSecret("/api/v1/auth/login/cancel"), { method: "POST" });
         if (ws) {
           ws.close();
           ws = null;
@@ -1114,7 +1129,7 @@
       }
 
       async function logout() {
-        await fetch("/api/v1/auth/logout", { method: "POST" });
+        await fetch(addSecret("/api/v1/auth/logout"), { method: "POST" });
         showToast("已退出登录", "info");
         checkAuth();
       }
@@ -1139,7 +1154,7 @@
             `;
 
         try {
-          const res = await fetch("/api/v1/devices/");
+          const res = await fetch(addSecret("/api/v1/devices/"));
           if (!res.ok) throw new Error("Not authenticated");
           const devices = await res.json();
 
@@ -1163,7 +1178,7 @@
                                 </div>
                                 <div class="device-status">
                                     <span class="device-status-badge ${d.isOnline ? "online" : "offline"}">
-                                        <span class="device-status-dot"></span>
+                                        <span class="status-dot"></span>
                                         ${d.isOnline ? "在线" : "离线"}
                                     </span>
                                 </div>
@@ -1187,7 +1202,7 @@
             `;
 
         try {
-          const res = await fetch("/api/v1/scenes");
+          const res = await fetch(addSecret("/api/v1/scenes"));
           if (!res.ok) throw new Error("Not authenticated");
           const scenes = await res.json();
 
@@ -1223,7 +1238,7 @@
 
       async function runScene(sceneId) {
         try {
-          const res = await fetch(`/api/v1/scenes/${sceneId}`, {
+          const res = await fetch(addSecret(`/api/v1/scenes/${sceneId}`), {
             method: "POST",
           });
           const data = await res.json();
@@ -1260,9 +1275,9 @@
         try {
           // Fetch device details and properties in parallel
           const [deviceRes, propsRes, infoRes] = await Promise.all([
-            fetch(`/api/v1/devices/${did}`),
-            fetch(`/api/v1/devices/${did}/properties`),
-            fetch(`/api/v1/devices/${did}/info`),
+            fetch(addSecret(`/api/v1/devices/${did}`)),
+            fetch(addSecret(`/api/v1/devices/${did}/properties`)),
+            fetch(addSecret(`/api/v1/devices/${did}/info`)),
           ]);
 
           const device = await deviceRes.json();
@@ -1392,7 +1407,7 @@
       async function toggleProperty(did, propName, value) {
         try {
           const res = await fetch(
-            `/api/v1/devices/${did}/properties/${propName}`,
+            addSecret(`/api/v1/devices/${did}/properties/${propName}`),
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -1415,7 +1430,7 @@
       async function executeAction(did, actionName) {
         try {
           const res = await fetch(
-            `/api/v1/devices/${did}/actions/${actionName}`,
+            addSecret(`/api/v1/devices/${did}/actions/${actionName}`),
             { method: "POST" },
           );
           const data = await res.json();

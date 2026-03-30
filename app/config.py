@@ -3,13 +3,24 @@
 import os
 from pathlib import Path
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Try to load .env file from project root
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    load_dotenv(env_file)
 
 # Data directory for storing auth files
 DATA_DIR = os.environ.get("MIJIA_DATA_DIR", str(BASE_DIR / "data"))
 AUTH_FILE = os.path.join(DATA_DIR, "auth.json")
 AUTH_DIR = os.path.join(DATA_DIR, "mijia_auth")
+
+# API Secret - required for access if set
+API_SECRET = os.environ.get("MIJIA_API_SECRET", "")
 
 # Server configuration
 HOST = os.environ.get("MIJIA_HOST", "0.0.0.0")

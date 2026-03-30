@@ -1,10 +1,11 @@
 """Auth router - Simplified single instance mode."""
 
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse
 
 from app.services.mijia import mijia_service
+from app.dependencies import verify_api_secret
 
 logger = logging.getLogger("auth")
 
@@ -12,32 +13,32 @@ router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
 
 @router.get("/status")
-async def get_auth_status():
+async def get_auth_status(_: bool = Depends(verify_api_secret)):
     """Get current authentication status."""
     return mijia_service.get_auth_status()
 
 
 @router.post("/login")
-async def start_login():
+async def start_login(_: bool = Depends(verify_api_secret)):
     """Start QR code login - returns QR code immediately."""
     return await mijia_service.start_login()
 
 
 @router.get("/login/status")
-async def get_login_status():
+async def get_login_status(_: bool = Depends(verify_api_secret)):
     """Get current login status."""
     return mijia_service.get_login_status()
 
 
 @router.post("/login/cancel")
-async def cancel_login():
+async def cancel_login(_: bool = Depends(verify_api_secret)):
     """Cancel ongoing login."""
     mijia_service.cancel_login()
     return {"success": True, "message": "Login cancelled"}
 
 
 @router.post("/logout")
-async def logout():
+async def logout(_: bool = Depends(verify_api_secret)):
     """Logout."""
     return mijia_service.logout()
 
