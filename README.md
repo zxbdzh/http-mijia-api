@@ -17,7 +17,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/http-mijia-api.git
+git clone https://github.com/zxbdzh/http-mijia-api
 cd http-mijia-api
 
 # 启动服务
