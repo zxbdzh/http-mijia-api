@@ -1,5 +1,7 @@
 # Mijia HTTP API
 
+[English](README.en.md)
+
 基于 [mijia-api](https://github.com/Do1e/mijia-api) 的 HTTP API 服务器，支持 Docker 部署。
 
 ## 功能特性
