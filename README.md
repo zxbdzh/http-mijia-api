@@ -1,8 +1,23 @@
+<div align="center">
+
 # Mijia HTTP API
 
 [English](README.en.md)
 
-基于 [mijia-api](https://github.com/Do1e/mijia-api) 的 HTTP API 服务器，支持 Docker 部署。
+**把米家设备变成 HTTP API。** 基于 [mijia-api](https://github.com/Do1e/mijia-api) 的 REST 服务器，扫码登录、设备与场景管理、Docker 一键部署。
+
+<sub>// REST API · 扫码登录 · WebSocket 状态推送 · Web UI · Swagger 文档</sub>
+
+<br />
+
+![Python](https://img.shields.io/badge/Python-FastAPI-3776ab?logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ed?logo=docker&logoColor=white)
+![API Docs](https://img.shields.io/badge/docs-Swagger%20UI%20%2B%20ReDoc-85ea2d)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+</div>
+
+---
 
 ## 功能特性
 

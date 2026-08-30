@@ -1,8 +1,23 @@
+<div align="center">
+
 # Mijia HTTP API
 
-An HTTP API server based on [mijia-api](https://github.com/Do1e/mijia-api), with Docker deployment support. Control your Xiaomi/Mijia smart-home devices through a REST API.
-
 [中文](README.md)
+
+**Turn your Mijia smart-home devices into an HTTP API.** A REST server based on [mijia-api](https://github.com/Do1e/mijia-api): QR-code login, device & scene management, one-command Docker deploy.
+
+<sub>// REST API · QR login · WebSocket status push · Web UI · Swagger docs</sub>
+
+<br />
+
+![Python](https://img.shields.io/badge/Python-FastAPI-3776ab?logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ed?logo=docker&logoColor=white)
+![API Docs](https://img.shields.io/badge/docs-Swagger%20UI%20%2B%20ReDoc-85ea2d)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+</div>
+
+---
 
 ## Features
 
